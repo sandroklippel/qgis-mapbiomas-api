@@ -19,6 +19,8 @@ hasProcessingProvider=no
 
 changelog=[0.1] - 2021-02-16
   - 1st version
+  [0.1.1] - 2021-02-24
+  - fix plugin dir
 
 tags=api, alerts, Brazil
 
