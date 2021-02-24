@@ -6,7 +6,7 @@ description=MapBiomas API for QGIS
 about=Get MapBiomas alerts directly into QGIS through the application interface. It is required to register an account. 
   If you don’t have one, sign-up here: https://plataforma.alerta.mapbiomas.org/cadastre-se.
 
-version=0.1.1
+version=0.1
 qgisMinimumVersion=3.10
 author=Sandro Klippel
 email=sandroklippel@gmail.com
