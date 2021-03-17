@@ -16,22 +16,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from qgis.PyQt import QtWidgets
-from .dockmapbiomasapi_ui import Ui_DockMapBiomasApi
+from .qgis_mapbiomas_api import QgisMapBiomasAPI
 
 __author__ = "Sandro Klippel"
 __copyright__ = "Copyright 2021, Sandro Klippel"
 __license__ = "GPLv3"
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __maintainer__ = "Sandro Klippel"
 __email__ = "sandroklippel at gmail.com"
 __status__ = "Prototype"
 __revision__ = '$Format:%H$'
 
 
-class DockMapBiomasApi(QtWidgets.QDockWidget, Ui_DockMapBiomasApi):
-
-    def __init__(self, parent=None):
-
-        super(DockMapBiomasApi, self).__init__(parent)
-        self.setupUi(self)
+def classFactory(iface):
+    return QgisMapBiomasAPI(iface)

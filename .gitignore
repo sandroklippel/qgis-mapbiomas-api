@@ -128,7 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# scripts, zip and Makefile
+# scripts, zip and settings
 *.sh
 *.zip
-Makefile
+settings.json
