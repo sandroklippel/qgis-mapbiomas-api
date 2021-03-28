@@ -19,8 +19,8 @@ import json
 import os
 from tempfile import NamedTemporaryFile
 
-from qgis.core import Qgis, QgsMessageLog, QgsProject, QgsVectorLayer
-from qgis.PyQt.QtCore import QDate, Qt
+from qgis.core import Qgis, QgsMessageLog, QgsProject, QgsVectorLayer, QgsActionManager, QgsAction
+from qgis.PyQt.QtCore import QDate, Qt, QCoreApplication, QSettings, QTranslator
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
@@ -41,6 +41,7 @@ class QgisMapBiomasAPI:
         """        
         self.iface = iface
         self.plugin_dir = os.path.dirname(__file__)
+        self.locale = QSettings().value('locale/userLocale')[0:2]
         self.dockwidget = None
         self.action = None
         self.name = 'MapBiomas API'
@@ -48,6 +49,16 @@ class QgisMapBiomasAPI:
         self.token = None
         self.biome = None
         self.state = None
+
+        # initialize locale
+        locale_path = os.path.join(self.plugin_dir,'i18n','{}_{}.qm'.format('mapbiomas-api', self.locale))
+        if os.path.exists(locale_path):
+            self.translator = QTranslator()
+            self.translator.load(locale_path)
+            QCoreApplication.installTranslator(self.translator)
+
+    def tr(self, msg):
+        return QCoreApplication.translate("QgisMapBiomasAPI", msg)
 
     def initGui(self):
         """
@@ -151,7 +162,7 @@ class QgisMapBiomasAPI:
                 if self.state is None:
                     self.state, err = allTerritories.get(self.token, {"category": "STATE"})
         else:
-            err = 'Email and password are required.'
+            err = self.tr('Email and password are required.')
         
         return err
 
@@ -186,33 +197,38 @@ class QgisMapBiomasAPI:
         except Exception as e:
             err = str(e)
         if err is None:
-            with NamedTemporaryFile("w+t", prefix="alerts_", suffix=".geojson", delete=False) as outfile:
+            with NamedTemporaryFile("w+t", prefix=self.tr("alerts_"), suffix=".geojson", delete=False) as outfile:
                 json.dump(data, outfile)
                 fn = outfile.name
             # add vector layer
             layer = QgsVectorLayer(fn, 'MapBiomasAPI', 'ogr')
             if layer.isValid():
+                locale_style = os.path.join(self.plugin_dir,'i18n','mapbiomas-api_{}.qml'.format(self.locale))
+                if os.path.exists(locale_style):
+                    layer.loadNamedStyle(locale_style)
+                else:
+                    layer.loadNamedStyle(os.path.join(self.plugin_dir,'mapbiomas-api.qml'))
                 QgsProject.instance().addMapLayer(layer)
             else:
                 self.log("Invalid layer file: {}".format(fn))
-                self.info("Unknown error. Invalid layer. Try it again.", level=Qgis.Critical)
+                self.info(self.tr("Unknown error. Invalid layer. Try it again."), level=Qgis.Critical)
         elif err == 'Você não tem permissão para realizar esta ação':
-            self.dockwidget.pushButton.setText('SIGN IN')
+            self.dockwidget.pushButton.setText(self.tr('SIGN IN'))
             self.dockwidget.options.setDisabled(True)
             self.dockwidget.mGroupBox.setCollapsed(False)
-            self.info("The session has expired. Sign in again.", level=Qgis.Critical)
+            self.info(self.tr("The session has expired. Sign in again."), level=Qgis.Critical)
         else:
             self.info(err, level=Qgis.Critical)
 
     def do_something(self):
         """Sign in or get alerts
         """
-        if self.dockwidget.pushButton.text() == 'SIGN IN':
+        if self.dockwidget.pushButton.text() == self.tr('SIGN IN'):
             err = self.sign_in()
             if err is None:
                 self.dockwidget.BIOME.addItems(self.biome.keys())
                 self.dockwidget.STATE.addItems(self.state.keys())
-                self.dockwidget.pushButton.setText('GET ALERTS')
+                self.dockwidget.pushButton.setText(self.tr('GET ALERTS'))
                 self.dockwidget.options.setEnabled(True)
                 self.dockwidget.mGroupBox.setCollapsed(True)
             else:

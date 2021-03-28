@@ -158,6 +158,10 @@ class allPublishedAlerts(MapbiomasApi):
 
         def feature(d):
             geometry = Geometry(d.pop("geometry")["geom"]).geojson
+            car_ids = ', '.join([str(c["id"]) for c in d["cars"]])
+            car_codes = '\n'.join([str(c["carCode"]) for c in d.pop("cars")])
+            source = ', '.join(d.pop("source"))
+            d.update({"carId": car_ids,"carCode": car_codes, "source": source})
             return {"type": "Feature", "properties": d, "geometry": geometry}
 
         srid = Geometry(data[0]['geometry']['geom']).srid

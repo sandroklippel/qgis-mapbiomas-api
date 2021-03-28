@@ -132,3 +132,5 @@ dmypy.json
 *.sh
 *.zip
 settings.json
+
+.DS_Store
