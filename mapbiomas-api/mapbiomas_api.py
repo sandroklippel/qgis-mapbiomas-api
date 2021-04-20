@@ -18,6 +18,8 @@
 """Mapbiomas alerts API
 """
 
+from datetime import datetime
+
 import requests
 
 from .geometry import Geometry
@@ -62,7 +64,7 @@ class MapbiomasApi(object):
         headers = {'Authorization': 'Bearer ' + token}
         rows = []
         offset = 0
-        once = not filters
+        once = not "territoryIds" in filters
 
         with requests.Session() as session:
         
@@ -88,7 +90,6 @@ class MapbiomasApi(object):
         return cls.parse(rows), None
 
 
-
 class allTerritories(MapbiomasApi):
 
     QUERY = \
@@ -112,7 +113,6 @@ class allTerritories(MapbiomasApi):
     @staticmethod
     def parse(data):
         return {d['name']: d['id'] for d in data}
-
 
 
 class allPublishedAlerts(MapbiomasApi):
@@ -158,10 +158,16 @@ class allPublishedAlerts(MapbiomasApi):
 
         def feature(d):
             geometry = Geometry(d.pop("geometry")["geom"]).geojson
+            alertinsertedat = datetime.strptime(d.pop("alertInsertedAt"), '%d/%m/%Y %H:%M').isoformat()
+            detectedat = datetime.strptime(d.pop("detectedAt"), '%d/%m/%Y').strftime('%Y-%m-%d')
             car_ids = ', '.join([str(c["id"]) for c in d["cars"]])
             car_codes = '\n'.join([str(c["carCode"]) for c in d.pop("cars")])
             source = ', '.join(d.pop("source"))
-            d.update({"carId": car_ids,"carCode": car_codes, "source": source})
+            d.update({"alertInsertedAt": alertinsertedat,
+                      "detectedAt": detectedat,
+                      "carId": car_ids,
+                      "carCode": car_codes, 
+                      "source": source})
             return {"type": "Feature", "properties": d, "geometry": geometry}
 
         srid = Geometry(data[0]['geometry']['geom']).srid
@@ -171,3 +177,175 @@ class allPublishedAlerts(MapbiomasApi):
                 "name": "allPublishedAlerts",
                 "crs": crs,
                 "features": [feature(d) for d in data]}
+
+
+class alertReport(MapbiomasApi):
+    QUERY = \
+    """
+    query
+    (
+      $alertId: Int!
+      $carId: Int
+    )
+    {
+      alertReport(alertId: $alertId, carId: $carId) {
+        alertAreaInCar
+        alertCode
+        alertGeomWkt
+        areaHa
+        carCode
+        changes {
+          labels
+        #   layer
+          overYears {
+            imageUrl
+            year
+          }
+        }
+        # imageGridMeasurements {
+        #   latitude {
+            # startCoordinate
+            # endCoordinate
+            # steps {
+            #   step
+            #   stepCoordinate
+            # }
+        #   }
+        #   longitude {
+            # startCoordinate
+            # endCoordinate
+            # steps {
+            #   step
+            #   stepCoordinate
+            # }
+        #   }
+        # }
+        images {
+          before {
+            acquiredAt
+            satellite
+            url
+          }
+          after {
+            acquiredAt
+            satellite
+            url
+          }
+        #   labels
+          alertInProperty
+          propertyInState
+        }
+        intersections {
+          conservationUnits {
+            area
+            # count
+          }
+          deforestmentsAuthorized {
+            area
+            # count
+          }
+          forestManagements {
+            area
+            # count
+          }
+          indigenousLands {
+            area
+            # count
+          }
+          settlements {
+            area
+            # count
+          }
+          withRuralProperty {
+            embargoes {
+              area
+            #   count
+            }
+            legalReserves {
+              area
+            #   count
+            }
+            permanentProtected {
+              area
+            #   count
+            }
+            riverSources {
+            #   area
+              count
+            }
+          }
+        }
+        simplifiedPoints {
+          imageUrl
+          table {
+            number
+            x
+            y
+          }
+        }
+        source
+        territories {
+          categoryName
+          id
+          name
+        }
+        # warnings
+      }
+    }
+    """
+
+    @staticmethod
+    def get(filters, session=requests.Session()):
+        request = session.post(alertReport.ENDPOINT, json={'query': alertReport.QUERY, 'variables': filters}, timeout=alertReport.TIMEOUT)
+        if request.status_code == 200:
+            row = request.json()
+            if 'errors' in row:
+                msg = '\n'.join([error['message'] for error in row['errors']])
+                return None, msg
+        else:
+            msg = "Query failed to run by returning code of {}.".format(request.status_code)
+            return None, msg
+
+        return alertReport.parse(row), None
+
+    @staticmethod
+    def parse(data):
+
+        def flatten(d, parent_key='', sep='_'):
+            items = []
+            for k, v in d.items():
+                new_key = parent_key + sep + k if parent_key else k
+                if isinstance(v, dict):
+                    items.extend(flatten(v, new_key, sep=sep).items())
+                else:
+                    items.append((new_key.lower(), v))
+            return dict(items)
+
+        def color_background(lst):
+            return ''.join(['<tr style="background:{};"><td></td></tr>'.format(color) for color in lst])
+
+        flat = flatten(data['data']['alertReport'])
+
+        source = ', '.join(flat.pop('source'))
+        
+        territories = {category['categoryName'].lower().replace('í','i'): category['name'] 
+                      for category in flat.pop('territories') 
+                      if category['categoryName'] in ['Bioma','Estado','Município']}
+        
+        changes_overyears = {'changes_' + str(change['year']): change['imageUrl'] for change in flat.pop('changes_overyears')}
+
+        changes_labels = ''.join(['<table style="width:100%"><caption>{}</caption>'.format(legend['name']) + \
+                          color_background(legend['colors']) + '</table>' for legend in flat.pop('changes_labels')]) # html
+
+        simplifiedpoints_table = '<table style="width:100%"><tr><th></th><th>LAT</th><th>LON</th></tr>' + \
+                                 ' '.join(['<tr><td>{}</td><td>{}</td><td>{}</td></tr>'.format(row['number'],row['y'],row['x']) \
+                                   for row in flat.pop('simplifiedpoints_table')]) + '</table>' # html
+        
+        flat.update({'source': source, 
+                     'simplifiedpoints_table': simplifiedpoints_table, 
+                     'changes_labels': changes_labels})
+
+        flat.update(changes_overyears)
+        flat.update(territories)
+
+        return flat

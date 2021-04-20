@@ -19,13 +19,16 @@ import json
 import os
 from tempfile import NamedTemporaryFile
 
-from qgis.core import Qgis, QgsMessageLog, QgsProject, QgsVectorLayer, QgsActionManager, QgsAction
-from qgis.PyQt.QtCore import QDate, Qt, QCoreApplication, QSettings, QTranslator
+from qgis.core import (Qgis, QgsAction, QgsActionManager, QgsApplication,
+                       QgsMessageLog, QgsProject, QgsTask, QgsVectorLayer)
+from qgis.PyQt.QtCore import (QCoreApplication, QDate, QSettings, Qt,
+                              QTranslator)
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
 from .dockmapbiomasapi import DockMapBiomasApi
 from .mapbiomas_api import MapbiomasApi, allPublishedAlerts, allTerritories
+from .provider import Provider
 
 
 class QgisMapBiomasAPI:
@@ -60,6 +63,10 @@ class QgisMapBiomasAPI:
     def tr(self, msg):
         return QCoreApplication.translate("QgisMapBiomasAPI", msg)
 
+    def initProcessing(self):
+        self.provider = Provider()
+        QgsApplication.processingRegistry().addProvider(self.provider)
+
     def initGui(self):
         """
         This method is called by QGIS when the main GUI starts up or 
@@ -67,6 +74,8 @@ class QgisMapBiomasAPI:
         Only want to register the menu items and toolbar buttons here,
         and connects action with run method.
         """ 
+
+        self.initProcessing()
         
         icon = QIcon(os.path.join(self.plugin_dir, 'icon.png'))
         self.action = QAction(icon, self.name, self.iface.mainWindow())
@@ -102,6 +111,9 @@ class QgisMapBiomasAPI:
             self.dockwidget.visibilityChanged.disconnect(self.visibility_changed)
             self.iface.removeDockWidget(self.dockwidget)
             del self.dockwidget
+
+        # remove processing provider
+        QgsApplication.processingRegistry().removeProvider(self.provider)
 
     def run(self):
         """
@@ -196,10 +208,13 @@ class QgisMapBiomasAPI:
             data, err = allPublishedAlerts.get(self.token, filters)
         except Exception as e:
             err = str(e)
+        
         if err is None:
             with NamedTemporaryFile("w+t", prefix=self.tr("alerts_"), suffix=".geojson", delete=False) as outfile:
                 json.dump(data, outfile)
                 fn = outfile.name
+            if not "territoryIds" in filters and (len(data["features"]) == allPublishedAlerts.LIMIT):
+                self.info(self.tr('The number of alerts was limited to {}').format(allPublishedAlerts.LIMIT))
             # add vector layer
             layer = QgsVectorLayer(fn, 'MapBiomasAPI', 'ogr')
             if layer.isValid():
