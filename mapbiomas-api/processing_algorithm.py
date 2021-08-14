@@ -198,7 +198,7 @@ class PullAlertData(QgsProcessingAlgorithm):
                 if carids:
                     for carid in carids.split(', '):
                         # Read report data for each CAR
-                        (data, err) = alertReport.get({'alertId': alertcode, 'carId': int(carid)}, session=s)
+                        (data, err) = alertReport.get({'alertCode': alertcode, 'carId': int(carid)}, session=s)
                         # Add a feature in the sink
                         if err is None:
                             outfeat = get_feature(fields, data)
@@ -208,7 +208,7 @@ class PullAlertData(QgsProcessingAlgorithm):
                             feedback.reportError(err)
                 else:
                     # Read report data without CAR
-                    (data, err) = alertReport.get({'alertId': alertcode}, session=s)
+                    (data, err) = alertReport.get({'alertCode': alertcode}, session=s)
                     # Add a feature in the sink
                     if err is None:
                         outfeat = get_feature(fields, data)

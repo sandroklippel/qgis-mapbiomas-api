@@ -33,12 +33,12 @@ class MapbiomasApi(object):
 
     @staticmethod
     def token(credentials):
-        """A function to get an Authorization Token""" 
+        """A function to get an Authorization Token"""
         
         mutation = \
         """mutation($email: String!, $password: String!)
             { 
-            createToken(email: $email, password: $password)
+            signIn(email: $email, password: $password)
                 {
                     token
                 }
@@ -53,7 +53,7 @@ class MapbiomasApi(object):
                 msg = '\n'.join([error['message'] for error in result['errors']])
                 return None, msg
             else:
-                return result["data"]["createToken"]["token"], None
+                return result["data"]["signIn"]["token"], None
         else:
             msg = "Failed to run by returning code of {}.".format(request.status_code)
             return None, msg
@@ -90,7 +90,7 @@ class MapbiomasApi(object):
         return cls.parse(rows), None
 
 
-class allTerritories(MapbiomasApi):
+class territories(MapbiomasApi):
 
     QUERY = \
     """
@@ -99,7 +99,7 @@ class allTerritories(MapbiomasApi):
         $category: TerritoryCategoryEnum
     )
     {
-    allTerritories
+    territories
     (
         category: $category
     )
@@ -115,7 +115,7 @@ class allTerritories(MapbiomasApi):
         return {d['name']: d['id'] for d in data}
 
 
-class allPublishedAlerts(MapbiomasApi):
+class publishedAlerts(MapbiomasApi):
 
     QUERY = \
     """
@@ -130,7 +130,7 @@ class allPublishedAlerts(MapbiomasApi):
       $offset: Int
     )
     {
-    allPublishedAlerts 
+    publishedAlerts 
     (
         startDetectedAt: $startDetectedAt
         endDetectedAt: $endDetectedAt
@@ -174,7 +174,7 @@ class allPublishedAlerts(MapbiomasApi):
         crs = { "type": "name", "properties": { "name": f"urn:ogc:def:crs:EPSG::{srid}" } }
 
         return {"type": "FeatureCollection",
-                "name": "allPublishedAlerts",
+                "name": "publishedAlerts",
                 "crs": crs,
                 "features": [feature(d) for d in data]}
 
@@ -184,11 +184,11 @@ class alertReport(MapbiomasApi):
     """
     query
     (
-      $alertId: Int!
+      $alertCode: Int!
       $carId: Int
     )
     {
-      alertReport(alertId: $alertId, carId: $carId) {
+      alertReport(alertCode: $alertCode, carId: $carId) {
         alertAreaInCar
         alertCode
         alertGeomWkt

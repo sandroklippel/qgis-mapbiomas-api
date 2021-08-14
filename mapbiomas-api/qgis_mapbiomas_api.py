@@ -27,7 +27,7 @@ from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
 from .dockmapbiomasapi import DockMapBiomasApi
-from .mapbiomas_api import MapbiomasApi, allPublishedAlerts, allTerritories
+from .mapbiomas_api import MapbiomasApi, publishedAlerts, territories
 from .provider import Provider
 
 
@@ -170,9 +170,9 @@ class QgisMapBiomasAPI:
                 err = str(e)
             if self.token is not None:
                 if self.biome is None:
-                    self.biome, err = allTerritories.get(self.token, {"category": "BIOME"})
+                    self.biome, err = territories.get(self.token, {"category": "BIOME"})
                 if self.state is None:
-                    self.state, err = allTerritories.get(self.token, {"category": "STATE"})
+                    self.state, err = territories.get(self.token, {"category": "STATE"})
         else:
             err = self.tr('Email and password are required.')
         
@@ -205,7 +205,7 @@ class QgisMapBiomasAPI:
             filters["endPublishedAt"] = self.dockwidget.endPublishedAt.date().toString('yyyy-MM-dd')
 
         try:
-            data, err = allPublishedAlerts.get(self.token, filters)
+            data, err = publishedAlerts.get(self.token, filters)
         except Exception as e:
             err = str(e)
         
@@ -213,8 +213,8 @@ class QgisMapBiomasAPI:
             with NamedTemporaryFile("w+t", prefix=self.tr("alerts_"), suffix=".geojson", delete=False) as outfile:
                 json.dump(data, outfile)
                 fn = outfile.name
-            if not "territoryIds" in filters and (len(data["features"]) == allPublishedAlerts.LIMIT):
-                self.info(self.tr('The number of alerts was limited to {}').format(allPublishedAlerts.LIMIT))
+            if not "territoryIds" in filters and (len(data["features"]) == publishedAlerts.LIMIT):
+                self.info(self.tr('The number of alerts was limited to {}').format(publishedAlerts.LIMIT))
             # add vector layer
             layer = QgsVectorLayer(fn, 'MapBiomasAPI', 'ogr')
             if layer.isValid():
